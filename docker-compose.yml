@@ -1,0 +1,104 @@
+version: "3"
+
+services:
+  bitcoind:
+    container_name: bitcoind
+    restart: always
+    image: btcpayserver/bitcoin:0.18.0
+    expose:
+    - "39388"
+    - "8332"
+    environment:
+      BITCOIN_NETWORK: mainnet
+      BITCOIN_EXTRA_ARGS: |
+        rpcbind=0.0.0.0:8332
+        port=39388
+        disablewallet=1
+    volumes:
+    - "bitcoind_data:/data"
+
+  nbxplorer:
+    container_name: nbxplorer
+    restart: always
+    image: "nicolasdorier/nbxplorer:2.0.0.51"
+    expose:
+      - "32838"
+    environment:
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_CHAINS: btc
+      NBXPLORER_SIGNALFILEDIR: /datadir
+      NBXPLORER_NETWORK: mainnet
+      NBXPLORER_BTCRPCURL: http://bitcoind:8332
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+    volumes:
+      - "bitcoind_data:/root/.bitcoin"
+      - "nbxplorer_data:/datadir"
+    links:
+      - bitcoind
+
+  btcpay:
+    container_name: btcpay
+    restart: always
+    image: "btcpayserver/btcpayserver:1.0.3.118"
+    environment:
+      BTCPAY_PSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayservermainnet
+      BTCPAY_NETWORK: mainnet
+      BTCPAY_ROOTPATH: /
+      BTCPAY_CHAINS: btc
+      BTCPAY_SOCKSENDPOINT: tor:9050
+      BTCPAY_TORRCFILE: /usr/local/etc/tor/torrc-2
+      BTCPAY_BTCEXPLORERURL: http://nbxplorer:32838
+      HIDDENSERVICE_NAME: BTCPayServer
+    volumes:
+      - "btcpay_data:/datadir"
+      - "nbxplorer_data:/root/.nbxplorer"
+      - "torrc_data:/usr/local/etc/tor/"
+      - "torservice_data:/var/lib/tor/hidden_services"
+    links:
+     - nbxplorer
+     - postgres
+     - tor
+
+  postgres:
+    container_name: postgres
+    restart: always
+    image: postgres:9.6.5
+    expose: "5432"
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data"
+
+  tor: 
+    container_name: tor
+    restart: always
+    image: btcpayserver/tor:0.3.5.8
+    expose:
+      - "9050"
+    environment:
+      TOR_PASSWORD: btcpayserver
+      TOR_ADDITIONAL_CONFIG: /usr/local/etc/tor/torrc-2
+      TOR_EXTRA_ARGS: |
+        CookieAuthentication 1
+    volumes:
+      - "torrc_data:/usr/local/etc/tor"
+      - "torservice_data:/var/lib/tor/hidden_services"
+    
+  tor-gen:
+    container_name: tor-gen
+    restart: always
+    image: btcpayserver/docker-gen:0.7.5
+    entrypoint: /usr/local/bin/docker-gen -notify-sighup tor -watch -wait 5s:30s /etc/docker-gen/templates/torrc.tmpl /usr/local/etc/tor/torrc-2
+    volumes:
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./torrc.tmpl:/etc/docker-gen/templates/torrc.tmpl:ro"
+      - "torrc_data:/usr/local/etc/tor"
+
+volumes:
+  bitcoind_data:
+  nbxplorer_data:
+  btcpay_data:
+  postgres_data:
+
+  torrc_data:
+  torservice_data:
+
+networks: {}
