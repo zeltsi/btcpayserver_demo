@@ -5,31 +5,29 @@ services:
     container_name: bitcoind
     restart: always
     image: btcpayserver/bitcoin:0.18.0
-    expose:
-    - "39388"
-    - "8332"
+    ports:
+      - "18443:18443"
+      - "18444:18444"
     environment:
-      BITCOIN_NETWORK: mainnet
+      BITCOIN_NETWORK: regtest
       BITCOIN_EXTRA_ARGS: |
-        rpcbind=0.0.0.0:8332
-        port=39388
-        disablewallet=1
+        rpcbind=bitcoind:18443
     volumes:
     - "bitcoind_data:/data"
 
   nbxplorer:
     container_name: nbxplorer
     restart: always
-    image: "nicolasdorier/nbxplorer:2.0.0.51"
+    image: "nicolasdorier/nbxplorer:2.1.10"
     expose:
       - "32838"
     environment:
+      NBXPLORER_NETWORK: ${NBITCOIN_NETWORK:-regtest} 
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_CHAINS: btc
       NBXPLORER_SIGNALFILEDIR: /datadir
-      NBXPLORER_NETWORK: mainnet
-      NBXPLORER_BTCRPCURL: http://bitcoind:8332
-      NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+      NBXPLORER_BTCRPCURL: http://bitcoind:18443
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:18444
     volumes:
       - "bitcoind_data:/root/.bitcoin"
       - "nbxplorer_data:/datadir"
@@ -41,8 +39,8 @@ services:
     restart: always
     image: "btcpayserver/btcpayserver:1.0.3.118"
     environment:
-      BTCPAY_PSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayservermainnet
-      BTCPAY_NETWORK: mainnet
+      BTCPAY_PSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayserverregtest
+      BTCPAY_NETWORK: regtest
       BTCPAY_ROOTPATH: /
       BTCPAY_CHAINS: btc
       BTCPAY_SOCKSENDPOINT: tor:9050
@@ -63,7 +61,8 @@ services:
     container_name: postgres
     restart: always
     image: postgres:9.6.5
-    expose: "5432"
+    expose:
+      - "5432"
     volumes:
       - "postgres_data:/var/lib/postgresql/data"
 
@@ -81,17 +80,17 @@ services:
     volumes:
       - "torrc_data:/usr/local/etc/tor"
       - "torservice_data:/var/lib/tor/hidden_services"
-    
+   
   tor-gen:
     container_name: tor-gen
     restart: always
     image: btcpayserver/docker-gen:0.7.5
     entrypoint: /usr/local/bin/docker-gen -notify-sighup tor -watch -wait 5s:30s /etc/docker-gen/templates/torrc.tmpl /usr/local/etc/tor/torrc-2
     volumes:
-      - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "./torrc.tmpl:/etc/docker-gen/templates/torrc.tmpl:ro"
-      - "torrc_data:/usr/local/etc/tor"
-
+        - "/var/run/docker.sock:/tmp/docker.sock:ro"
+        - "./torrc.tmpl:/etc/docker-gen/templates/torrc.tmpl:ro"
+        - "torrc_data:/usr/local/etc/tor"
+    
 volumes:
   bitcoind_data:
   nbxplorer_data:
