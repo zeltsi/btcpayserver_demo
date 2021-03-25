@@ -39,7 +39,7 @@ services:
     restart: always
     image: "btcpayserver/btcpayserver:1.0.3.118"
     environment:
-      BTCPAY_PSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayserverregtest
+      BTCPAY_POSTGRES: User ID=postgres;Host=postgres;Port=5432;Database=btcpayserverregtest
       BTCPAY_NETWORK: regtest
       BTCPAY_ROOTPATH: /
       BTCPAY_CHAINS: btc
